@@ -36,7 +36,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
-        <h1 className="text-2xl font-bold mb-6 text-center">
+        <h1 className="text-2xl font-bold mb-6 text-center text-black">
           {isRegister ? 'Inscription' : 'Connexion'}
         </h1>
 
@@ -49,7 +49,7 @@ export default function LoginPage() {
               placeholder="Nom"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full p-3 border rounded-lg"
+              className="w-full p-3 border rounded-lg text-black"
             />
           )}
           <input
@@ -58,7 +58,7 @@ export default function LoginPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="w-full p-3 border rounded-lg"
+            className="w-full p-3 border rounded-lg text-black"
           />
           <input
             type="password"
@@ -67,7 +67,7 @@ export default function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
             required
             minLength={8}
-            className="w-full p-3 border rounded-lg"
+            className="w-full p-3 border rounded-lg text-black"
           />
           <button
             type="submit"
@@ -78,7 +78,7 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="mt-4 text-center text-sm">
+        <p className="mt-4 text-center text-sm text-black">
           {isRegister ? 'Déjà un compte?' : 'Pas de compte?'}{' '}
           <button onClick={() => setIsRegister(!isRegister)} className="text-blue-600 hover:underline">
             {isRegister ? 'Se connecter' : "S'inscrire"}

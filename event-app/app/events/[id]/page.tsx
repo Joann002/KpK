@@ -84,8 +84,8 @@ export default function EventDetailPage() {
     }
   };
 
-  if (loading) return <div className="p-8">Chargement...</div>;
-  if (!event) return <div className="p-8">Événement non trouvé</div>;
+  if (loading) return <div className="p-8 text-black">Chargement...</div>;
+  if (!event) return <div className="p-8 text-black">Événement non trouvé</div>;
 
   const isOwner = currentUserId === event.owner.id;
   const isMember = event.members.some((m) => m.user.id === currentUserId);
@@ -104,8 +104,8 @@ export default function EventDetailPage() {
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex justify-between items-start">
             <div>
-              <h1 className="text-2xl font-bold">{event.title}</h1>
-              <p className="text-gray-500 mt-1">
+              <h1 className="text-2xl font-bold text-black">{event.title}</h1>
+              <p className="text-black mt-1">
                 Organisé par {event.owner.name || event.owner.email}
               </p>
             </div>
@@ -126,7 +126,7 @@ export default function EventDetailPage() {
             </div>
           </div>
 
-          <div className="mt-6 space-y-3">
+          <div className="mt-6 space-y-3 text-black">
             <p className="flex items-center gap-2">
               <span>📅</span>
               {new Date(event.startDate).toLocaleDateString('fr-FR', {
@@ -135,11 +135,11 @@ export default function EventDetailPage() {
               {event.endDate && ` - ${new Date(event.endDate).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`}
             </p>
             {event.location && <p className="flex items-center gap-2"><span>📍</span>{event.location}</p>}
-            {event.description && <p className="text-gray-700 mt-4">{event.description}</p>}
+            {event.description && <p className="text-black mt-4">{event.description}</p>}
           </div>
 
           <div className="mt-8">
-            <h2 className="text-lg font-semibold mb-4">Participants ({event.members.length})</h2>
+            <h2 className="text-lg font-semibold mb-4 text-black">Participants ({event.members.length})</h2>
             {event.members.length > 0 ? (
               <ul className="space-y-2">
                 {event.members.map((member) => (
@@ -147,13 +147,13 @@ export default function EventDetailPage() {
                     <span className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-medium">
                       {(member.user.name || member.user.email)[0].toUpperCase()}
                     </span>
-                    <span>{member.user.name || member.user.email}</span>
-                    <span className="text-gray-400 text-sm">({member.role})</span>
+                    <span className="text-black">{member.user.name || member.user.email}</span>
+                    <span className="text-black text-sm">({member.role})</span>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-gray-500">Aucun participant pour le moment</p>
+              <p className="text-black">Aucun participant pour le moment</p>
             )}
           </div>
         </div>
