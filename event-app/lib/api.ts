@@ -78,4 +78,12 @@ export const invitations = {
   getMy: () => fetchApi('/invitations/my'),
   rsvp: (id: number, status: 'ACCEPTED' | 'DECLINED') =>
     fetchApi(`/invitations/${id}/rsvp`, { method: 'POST', body: JSON.stringify({ status }) }),
+  getForEvent: (eventId: number) => fetchApi(`/events/${eventId}/invitations`),
+  send: (eventId: number, userId: number, message?: string) =>
+    fetchApi(`/events/${eventId}/invitations`, { method: 'POST', body: JSON.stringify({ userId, message }) }),
+  cancel: (id: number) => fetchApi(`/invitations/${id}`, { method: 'DELETE' }),
+};
+
+export const users = {
+  getAll: () => fetchApi('/users'),
 };

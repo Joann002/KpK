@@ -38,10 +38,6 @@ export declare class InvitationsService {
     }>;
     getMyInvitations(userId: number): Promise<({
         event: {
-            id: number;
-            title: string;
-            startDate: Date;
-            location: string;
             owner: {
                 email: string;
                 name: string;

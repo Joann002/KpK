@@ -3,12 +3,45 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
-import { events, members } from '@/lib/api';
+import { events, members, invitations, users } from '@/lib/api';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Separator } from '@/components/ui/separator';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface Member {
   id: number;
   role: string;
   user: { id: number; name?: string; email: string };
+}
+
+interface Invitation {
+  id: number;
+  status: 'PENDING' | 'ACCEPTED' | 'DECLINED';
+  message?: string;
+  user: { id: number; name?: string; email: string };
+}
+
+interface User {
+  id: number;
+  name?: string;
+  email: string;
 }
 
 interface Event {
@@ -28,6 +61,12 @@ export default function EventDetailPage() {
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [allUsers, setAllUsers] = useState<User[]>([]);
+  const [eventInvitations, setEventInvitations] = useState<Invitation[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<string>('');
+  const [inviteMessage, setInviteMessage] = useState('');
+  const [inviting, setInviting] = useState(false);
 
   useEffect(() => {
     if (!localStorage.getItem('accessToken')) {
@@ -35,7 +74,6 @@ export default function EventDetailPage() {
       return;
     }
     loadEvent();
-    // Decode user ID from token
     const token = localStorage.getItem('accessToken');
     if (token) {
       try {
@@ -53,6 +91,48 @@ export default function EventDetailPage() {
       router.push('/dashboard');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadInviteData = async () => {
+    try {
+      const [usersData, invitationsData] = await Promise.all([
+        users.getAll(),
+        invitations.getForEvent(Number(params.id)),
+      ]);
+      setAllUsers(usersData);
+      setEventInvitations(invitationsData);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Erreur');
+    }
+  };
+
+  const openInviteModal = async () => {
+    await loadInviteData();
+    setShowInviteModal(true);
+  };
+
+  const handleInvite = async () => {
+    if (!selectedUserId) return;
+    setInviting(true);
+    try {
+      await invitations.send(Number(params.id), Number(selectedUserId), inviteMessage || undefined);
+      await loadInviteData();
+      setSelectedUserId('');
+      setInviteMessage('');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Erreur');
+    } finally {
+      setInviting(false);
+    }
+  };
+
+  const handleCancelInvitation = async (invitationId: number) => {
+    try {
+      await invitations.cancel(invitationId);
+      await loadInviteData();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Erreur');
     }
   };
 
@@ -84,80 +164,220 @@ export default function EventDetailPage() {
     }
   };
 
-  if (loading) return <div className="p-8 text-black">Chargement...</div>;
-  if (!event) return <div className="p-8 text-black">Événement non trouvé</div>;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-muted-foreground">Chargement...</p>
+      </div>
+    );
+  }
+
+  if (!event) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-muted-foreground">Événement non trouvé</p>
+      </div>
+    );
+  }
 
   const isOwner = currentUserId === event.owner.id;
   const isMember = event.members.some((m) => m.user.id === currentUserId);
 
+  const availableUsers = allUsers.filter(
+    (u) =>
+      u.id !== currentUserId &&
+      u.id !== event?.owner.id &&
+      !event?.members.some((m) => m.user.id === u.id) &&
+      !eventInvitations.some((inv) => inv.user.id === u.id && inv.status === 'PENDING')
+  );
+
   return (
-    <div className="min-h-screen bg-gray-100">
-      <header className="bg-white shadow">
+    <div className="min-h-screen bg-muted/40">
+      <header className="bg-background border-b">
         <div className="max-w-4xl mx-auto px-4 py-4">
-          <Link href="/dashboard" className="text-blue-600 hover:underline">
-            ← Retour
+          <Link href="/dashboard">
+            <Button variant="link" className="p-0">← Retour</Button>
           </Link>
         </div>
       </header>
 
       <main className="max-w-4xl mx-auto px-4 py-8">
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex justify-between items-start">
-            <div>
-              <h1 className="text-2xl font-bold text-black">{event.title}</h1>
-              <p className="text-black mt-1">
-                Organisé par {event.owner.name || event.owner.email}
-              </p>
+        <Card>
+          <CardHeader>
+            <div className="flex justify-between items-start">
+              <div>
+                <CardTitle className="text-2xl">{event.title}</CardTitle>
+                <p className="text-muted-foreground mt-1">
+                  Organisé par {event.owner.name || event.owner.email}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                {isOwner && (
+                  <Button onClick={openInviteModal}>Inviter</Button>
+                )}
+                {isOwner ? (
+                  <Button variant="destructive" onClick={handleDelete}>
+                    Supprimer
+                  </Button>
+                ) : isMember ? (
+                  <Button variant="secondary" onClick={handleLeave}>
+                    Quitter
+                  </Button>
+                ) : (
+                  <Button onClick={handleJoin}>Rejoindre</Button>
+                )}
+              </div>
             </div>
-            <div className="space-x-2">
-              {isOwner ? (
-                <button onClick={handleDelete} className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">
-                  Supprimer
-                </button>
-              ) : isMember ? (
-                <button onClick={handleLeave} className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700">
-                  Quitter
-                </button>
-              ) : (
-                <button onClick={handleJoin} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
-                  Rejoindre
-                </button>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-3">
+              <p className="flex items-center gap-2">
+                <span>📅</span>
+                {new Date(event.startDate).toLocaleDateString('fr-FR', {
+                  weekday: 'long',
+                  day: 'numeric',
+                  month: 'long',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+                {event.endDate &&
+                  ` - ${new Date(event.endDate).toLocaleTimeString('fr-FR', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}`}
+              </p>
+              {event.location && (
+                <p className="flex items-center gap-2">
+                  <span>📍</span>
+                  {event.location}
+                </p>
+              )}
+              {event.description && (
+                <p className="text-muted-foreground mt-4">{event.description}</p>
               )}
             </div>
-          </div>
 
-          <div className="mt-6 space-y-3 text-black">
-            <p className="flex items-center gap-2">
-              <span>📅</span>
-              {new Date(event.startDate).toLocaleDateString('fr-FR', {
-                weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'
-              })}
-              {event.endDate && ` - ${new Date(event.endDate).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`}
-            </p>
-            {event.location && <p className="flex items-center gap-2"><span>📍</span>{event.location}</p>}
-            {event.description && <p className="text-black mt-4">{event.description}</p>}
-          </div>
+            <Separator />
 
-          <div className="mt-8">
-            <h2 className="text-lg font-semibold mb-4 text-black">Participants ({event.members.length})</h2>
-            {event.members.length > 0 ? (
-              <ul className="space-y-2">
-                {event.members.map((member) => (
-                  <li key={member.id} className="flex items-center gap-2 p-2 bg-gray-50 rounded">
-                    <span className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-medium">
-                      {(member.user.name || member.user.email)[0].toUpperCase()}
-                    </span>
-                    <span className="text-black">{member.user.name || member.user.email}</span>
-                    <span className="text-black text-sm">({member.role})</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-black">Aucun participant pour le moment</p>
-            )}
-          </div>
-        </div>
+            <div>
+              <h2 className="text-lg font-semibold mb-4">
+                Participants ({event.members.length})
+              </h2>
+              {event.members.length > 0 ? (
+                <div className="space-y-2">
+                  {event.members.map((member) => (
+                    <div
+                      key={member.id}
+                      className="flex items-center gap-3 p-2 rounded-lg bg-muted/50"
+                    >
+                      <Avatar>
+                        <AvatarFallback>
+                          {(member.user.name || member.user.email)[0].toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span>{member.user.name || member.user.email}</span>
+                      <Badge variant="outline">{member.role}</Badge>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-muted-foreground">Aucun participant pour le moment</p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       </main>
+
+      <Dialog open={showInviteModal} onOpenChange={setShowInviteModal}>
+        <DialogContent className="max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Inviter des participants</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Sélectionner un utilisateur</Label>
+              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="-- Choisir --" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableUsers.map((u) => (
+                    <SelectItem key={u.id} value={String(u.id)}>
+                      {u.name || u.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Message (optionnel)</Label>
+              <Textarea
+                value={inviteMessage}
+                onChange={(e) => setInviteMessage(e.target.value)}
+                placeholder="Ajouter un message..."
+                rows={2}
+              />
+            </div>
+
+            <Button
+              onClick={handleInvite}
+              disabled={!selectedUserId || inviting}
+              className="w-full"
+            >
+              {inviting ? 'Envoi...' : "Envoyer l'invitation"}
+            </Button>
+          </div>
+
+          {eventInvitations.length > 0 && (
+            <>
+              <Separator className="my-4" />
+              <div>
+                <h3 className="font-semibold mb-3">Invitations envoyées</h3>
+                <div className="space-y-2">
+                  {eventInvitations.map((inv) => (
+                    <div
+                      key={inv.id}
+                      className="flex items-center justify-between p-2 rounded-lg bg-muted/50"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span>{inv.user.name || inv.user.email}</span>
+                        <Badge
+                          variant={
+                            inv.status === 'PENDING'
+                              ? 'secondary'
+                              : inv.status === 'ACCEPTED'
+                              ? 'default'
+                              : 'destructive'
+                          }
+                        >
+                          {inv.status === 'PENDING'
+                            ? 'En attente'
+                            : inv.status === 'ACCEPTED'
+                            ? 'Acceptée'
+                            : 'Refusée'}
+                        </Badge>
+                      </div>
+                      {inv.status === 'PENDING' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleCancelInvitation(inv.id)}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          Annuler
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

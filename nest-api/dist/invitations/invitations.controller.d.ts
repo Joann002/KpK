@@ -56,10 +56,6 @@ export declare class InvitationsController {
         };
     }): Promise<({
         event: {
-            id: number;
-            title: string;
-            startDate: Date;
-            location: string;
             owner: {
                 email: string;
                 name: string;

@@ -46,9 +46,14 @@ export class InvitationsService {
     });
 
     if (dto.status === 'ACCEPTED') {
-      await this.prisma.eventMember.create({
-        data: { eventId: invitation.eventId, userId, role: 'participant' },
+      const existingMember = await this.prisma.eventMember.findUnique({
+        where: { userId_eventId: { userId, eventId: invitation.eventId } },
       });
+      if (!existingMember) {
+        await this.prisma.eventMember.create({
+          data: { eventId: invitation.eventId, userId, role: 'participant' },
+        });
+      }
     }
 
     return updated;
@@ -59,7 +64,6 @@ export class InvitationsService {
       where: { userId },
       include: {
         event: {
-          select: { id: true, title: true, startDate: true, location: true },
           include: { owner: { select: { id: true, name: true, email: true } } },
         },
       },
